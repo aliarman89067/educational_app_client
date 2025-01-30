@@ -77,6 +77,9 @@ export default function SoloResult() {
   >(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tabs, setTabs] = useState<"wrong" | "incomplete">("wrong");
+  const [smallScreenTabs, setSmallScreenTabs] = useState<
+    "correct" | "wrong-incomplete"
+  >("correct");
 
   useEffect(() => {
     if (!resultId) return;
@@ -105,7 +108,7 @@ export default function SoloResult() {
     const wrongtAnswer = data.quizIdAndValue.filter(
       (item: any) => !item.isCorrect
     );
-    const per = (correctAnswer.length / data.quizIdAndValue.length) * 100;
+    const per = (correctAnswer.length / data.mcqs.length) * 100;
     setPercentage(Math.floor(per));
     setAnalytics({
       total: data.mcqs.length,
@@ -248,7 +251,7 @@ export default function SoloResult() {
             {/* Chart and Statistics */}
             <Card className="flex flex-col w-full border-none shadow-none bg-transparent">
               <CardContent className="flex-1 pb-0 border-none shadow-none mx-auto">
-                <div className="flex gap-4 items-center">
+                <div className="flex flex-col md:flex-row max-md:my-6 gap-2 md:gap-4 items-center">
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -264,7 +267,7 @@ export default function SoloResult() {
                   </motion.div>
                   <ChartContainer
                     config={chartConfig}
-                    className="mx-auto aspect-square max-h-[270px] max-w-[270px] min-w-[270px]"
+                    className="mx-auto aspect-square h-[270px] md:max-h-[270px] w-[270px] md:max-w-[270px] min-w-[270px]"
                   >
                     <RadialBarChart
                       data={chartData}
@@ -374,95 +377,209 @@ export default function SoloResult() {
                 />
               </motion.div>
             </div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, type: "spring", delay: 0.4 }}
-              className="flex items-start justify-center w-full mx-auto mt-5 gap-2"
-            >
-              <div className="flex-1 bg-green-200 flex flex-col p-3 rounded-md">
-                <h2 className="font-openSans text-sm font-semibold text-lightGray">
-                  {analytics.correct} Correct{" "}
-                  {analytics.correct > 1 ? "Answers" : "Answer"}
-                </h2>
-                <div className="w-full h-[1px] bg-white rounded-lg my-2" />
-                <div className="flex flex-col gap-2">
-                  {correctQuiz?.map((item, index) => (
-                    <QuizResultText key={index} item={item} index={index} />
-                  ))}
+            <div className="hidden md:flex">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, type: "spring", delay: 0.4 }}
+                className="flex items-start justify-center w-full mx-auto mt-5 gap-2"
+              >
+                <div className="flex-1 bg-green-200 flex flex-col p-3 rounded-md">
+                  <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                    {analytics.correct} Correct{" "}
+                    {analytics.correct > 1 ? "Answers" : "Answer"}
+                  </h2>
+                  <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                  <div className="flex flex-col gap-2">
+                    {correctQuiz?.map((item, index) => (
+                      <QuizResultText key={index} item={item} index={index} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1 flex flex-col gap-3">
-                {incompleteQuiz && incompleteQuiz.length ? (
-                  <div className="flex items-center gap-3">
-                    <Button
-                      onClick={() => setTabs("wrong")}
-                      variant={tabs === "wrong" ? "default" : "outline"}
-                    >
-                      Wrong
-                    </Button>
-                    <Button
-                      onClick={() => setTabs("incomplete")}
-                      variant={tabs === "incomplete" ? "default" : "outline"}
-                    >
-                      Incomplete
-                    </Button>
-                  </div>
-                ) : null}
-                {incompleteQuiz && incompleteQuiz ? (
-                  <div>
-                    {tabs === "wrong" ? (
-                      <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
-                        <h2 className="font-openSans text-sm font-semibold text-lightGray">
-                          {analytics.wrong} Wrong{" "}
-                          {analytics.wrong > 1 ? "Answers" : "Answer"}
-                        </h2>
-                        <div className="w-full h-[1px] bg-white rounded-lg my-2" />
-                        <div className="flex flex-col gap-2">
-                          {wrongQuiz?.map((item, index) => (
-                            <QuizResultText
-                              key={index}
-                              item={item}
-                              index={index}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 bg-lightGray flex flex-col p-3 rounded-md">
-                        <h2 className="font-openSans text-sm font-semibold text-white">
-                          {incompleteQuiz.length} Incomplete{" "}
-                          {incompleteQuiz.length > 1 ? "Answers" : "Answer"}
-                        </h2>
-                        <div className="w-full h-[1px] bg-white rounded-lg my-2" />
-                        <div className="flex flex-col gap-2">
-                          {incompleteQuiz?.map((item, index) => (
-                            <QuizResultText
-                              key={index}
-                              item={item}
-                              index={index}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
-                    <h2 className="font-openSans text-sm font-semibold text-lightGray">
-                      {analytics.wrong} Wrong{" "}
-                      {analytics.wrong > 1 ? "Answers" : "Answer"}
-                    </h2>
-                    <div className="w-full h-[1px] bg-white rounded-lg my-2" />
-                    <div className="flex flex-col gap-2">
-                      {wrongQuiz?.map((item, index) => (
-                        <QuizResultText key={index} item={item} index={index} />
-                      ))}
+                <div className="flex-1 flex flex-col gap-3">
+                  {incompleteQuiz && incompleteQuiz.length ? (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={() => setTabs("wrong")}
+                        variant={tabs === "wrong" ? "default" : "outline"}
+                      >
+                        Wrong
+                      </Button>
+                      <Button
+                        onClick={() => setTabs("incomplete")}
+                        variant={tabs === "incomplete" ? "default" : "outline"}
+                      >
+                        Incomplete
+                      </Button>
                     </div>
-                  </div>
-                )}
+                  ) : null}
+                  {incompleteQuiz && incompleteQuiz ? (
+                    <div>
+                      {tabs === "wrong" ? (
+                        <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
+                          <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                            {analytics.wrong} Wrong{" "}
+                            {analytics.wrong > 1 ? "Answers" : "Answer"}
+                          </h2>
+                          <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                          <div className="flex flex-col gap-2">
+                            {wrongQuiz?.map((item, index) => (
+                              <QuizResultText
+                                key={index}
+                                item={item}
+                                index={index}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 bg-lightGray flex flex-col p-3 rounded-md">
+                          <h2 className="font-openSans text-sm font-semibold text-white">
+                            {incompleteQuiz.length} Incomplete{" "}
+                            {incompleteQuiz.length > 1 ? "Answers" : "Answer"}
+                          </h2>
+                          <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                          <div className="flex flex-col gap-2">
+                            {incompleteQuiz?.map((item, index) => (
+                              <QuizResultText
+                                key={index}
+                                item={item}
+                                index={index}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
+                      <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                        {analytics.wrong} Wrong{" "}
+                        {analytics.wrong > 1 ? "Answers" : "Answer"}
+                      </h2>
+                      <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                      <div className="flex flex-col gap-2">
+                        {wrongQuiz?.map((item, index) => (
+                          <QuizResultText
+                            key={index}
+                            item={item}
+                            index={index}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+            <div className="flex md:hidden flex-col">
+              <div className="flex items-center justify-center gap-4 mb-6 mt-4">
+                <Button
+                  variant={smallScreenTabs === "correct" ? "default" : "ghost"}
+                  onClick={() => setSmallScreenTabs("correct")}
+                >
+                  Correct
+                </Button>
+                <Button
+                  variant={
+                    smallScreenTabs === "wrong-incomplete" ? "default" : "ghost"
+                  }
+                  onClick={() => setSmallScreenTabs("wrong-incomplete")}
+                >
+                  Wrong / Incomplete
+                </Button>
               </div>
-            </motion.div>
+              {smallScreenTabs === "correct" && (
+                <div className="flex-1 bg-green-200 flex flex-col p-3 rounded-md">
+                  <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                    {analytics.correct} Correct{" "}
+                    {analytics.correct > 1 ? "Answers" : "Answer"}
+                  </h2>
+                  <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                  <div className="flex flex-col gap-2">
+                    {correctQuiz?.map((item, index) => (
+                      <QuizResultText key={index} item={item} index={index} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {smallScreenTabs === "wrong-incomplete" && (
+                <div className="flex-1 flex flex-col gap-3">
+                  {incompleteQuiz && incompleteQuiz.length ? (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={() => setTabs("wrong")}
+                        variant={tabs === "wrong" ? "default" : "outline"}
+                      >
+                        Wrong
+                      </Button>
+                      <Button
+                        onClick={() => setTabs("incomplete")}
+                        variant={tabs === "incomplete" ? "default" : "outline"}
+                      >
+                        Incomplete
+                      </Button>
+                    </div>
+                  ) : null}
+                  {incompleteQuiz && incompleteQuiz ? (
+                    <div>
+                      {tabs === "wrong" ? (
+                        <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
+                          <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                            {analytics.wrong} Wrong{" "}
+                            {analytics.wrong > 1 ? "Answers" : "Answer"}
+                          </h2>
+                          <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                          <div className="flex flex-col gap-2">
+                            {wrongQuiz?.map((item, index) => (
+                              <QuizResultText
+                                key={index}
+                                item={item}
+                                index={index}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 bg-lightGray flex flex-col p-3 rounded-md">
+                          <h2 className="font-openSans text-sm font-semibold text-white">
+                            {incompleteQuiz.length} Incomplete{" "}
+                            {incompleteQuiz.length > 1 ? "Answers" : "Answer"}
+                          </h2>
+                          <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                          <div className="flex flex-col gap-2">
+                            {incompleteQuiz?.map((item, index) => (
+                              <QuizResultText
+                                key={index}
+                                item={item}
+                                index={index}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex-1 bg-red-200 flex flex-col p-3 rounded-md">
+                      <h2 className="font-openSans text-sm font-semibold text-lightGray">
+                        {analytics.wrong} Wrong{" "}
+                        {analytics.wrong > 1 ? "Answers" : "Answer"}
+                      </h2>
+                      <div className="w-full h-[1px] bg-white rounded-lg my-2" />
+                      <div className="flex flex-col gap-2">
+                        {wrongQuiz?.map((item, index) => (
+                          <QuizResultText
+                            key={index}
+                            item={item}
+                            index={index}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}

@@ -12,6 +12,7 @@ import axios from "axios";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function QuizRoomOnline() {
   const [isUserMessage, setIsUserMessage] = useState(false);
@@ -177,7 +178,19 @@ export default function QuizRoomOnline() {
       mcqs,
       completeTime,
     });
+    socketIo.on("submit-error", (data) => {
+      if (data.error === "payload-not-correct") {
+        console.log("Payload is not error for submittion");
+        toast.error("Something went wrong!");
+      }
+    });
   };
+  useEffect(() => {
+    if (isTimeOut) {
+      handleSubmit();
+    }
+  }, [isTimeOut]);
+  console.log(isTimeOut);
 
   return (
     <>

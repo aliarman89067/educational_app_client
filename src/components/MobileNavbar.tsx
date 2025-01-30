@@ -10,6 +10,14 @@ import { navlinks } from "@/constants/navLinks";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import CustomRoundButton from "./CustomRoundButton";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignOutButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/clerk-react";
 
 export default function MobileNavbar() {
   const { pathname } = useLocation();
@@ -42,8 +50,21 @@ export default function MobileNavbar() {
           ))}
         </div>
         <div className="flex items-center gap-2 mt-5">
-          <CustomRoundButton title="Login" />
-          <CustomRoundButton title="Sign Up" />
+          <SignedOut>
+            <SignInButton>
+              <div>
+                <CustomRoundButton title="Login" />
+              </div>
+            </SignInButton>
+            <SignUpButton>
+              <div>
+                <CustomRoundButton title="Sign Up" />
+              </div>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
         </div>
       </SheetContent>
     </Sheet>
