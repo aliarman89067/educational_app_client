@@ -101,8 +101,9 @@ export default function YearModeDialog({
     }
   };
   useEffect(() => {
+    let id: any;
     if (isOpponentFinded) {
-      const id = setInterval(() => {
+      id = setInterval(() => {
         setFiveCounter((prev) => {
           if (prev === 300) {
             navigate(`/online-room/${onlineRoomId}`);
@@ -114,7 +115,9 @@ export default function YearModeDialog({
         });
       }, 1000);
     }
-  }, [isOpponentFinded]);
+    return () => clearInterval(id);
+  }, [isOpponentFinded, onlineRoomId, navigate]);
+
   const handleOnlinePlay = async () => {
     try {
       if (
@@ -153,27 +156,32 @@ export default function YearModeDialog({
         setIsOpponentFinded(true);
         setIsOpponentFinding(false);
       };
-
-      socketIo.on("student-find", handleStudentFind);
-
-      // Payload error handling
-      socketIo.on("payload-error", (data) => {
-        socketIo.off("payload-error");
+      const handlePayloadError = (data: any) => {
         if (data.error === "payload is not correct") {
           toast.error("Something went wrong!");
           setIsOpponentFinding(false);
         }
-      });
-
-      // Handle no student found event
-      socketIo.on("no-student-found", (data) => {
+      };
+      const noStudentFound = (data: any) => {
         if (data.error === "failed-to-find-student") {
           setIsOpponentFinding(false);
           setErrorFinding(true);
         }
-      });
+      };
+
+      socketIo.on("payload-error", handlePayloadError);
+      socketIo.on("no-student-found", noStudentFound);
+      socketIo.on("student-find", handleStudentFind);
+
+      return () => {
+        socketIo.off("payload-error", handlePayloadError);
+        socketIo.off("no-student-found", noStudentFound);
+        socketIo.off("student-find", handleStudentFind);
+      };
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      toast.error("Something went wrong try again later!");
+      setIsOpponentFinding(false);
     }
   };
 

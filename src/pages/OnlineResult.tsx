@@ -119,71 +119,75 @@ export default function OnlineResult() {
   const navigate = useNavigate();
   const { socketIo } = useSocket();
   useEffect(() => {
-    try {
-      if (!resultId) {
-        navigate("/quiz?error=true");
-      }
-      const loadData = async () => {
-        try {
-          const { data } = await axios.get(
-            `/api/quiz/get-online-history/${resultId}/${roomId}`
-          );
-          if (data.success) {
-            if (data.isPending) {
-              setIsPending(true);
-              setOpponentUser(data.data.opponentUser);
-              // const fullTime = new Date(Number(data.data.time.fullTime) * 1000);
-              const timeTaken = new Date(data.data.time.timeTaken);
-              timeTaken.setSeconds(
-                Number(data.data.time.fullTime) - timeTaken.getSeconds()
-              );
-              setRemainingTime(timeTaken);
-              if (data.data.myData) {
-                setMyData(data.data.myData);
-              }
-            } else {
-              setIsPending(false);
-              setOpponentUser(data.data.opponentUser);
-              if (data.data.myHistory) {
-                setMyData(data.data.myHistory);
-              }
-              if (data.data.opponentHistory) {
-                setOpponentData(data.data.opponentHistory);
-              }
+    if (!resultId) {
+      navigate("/quiz?error=true");
+      return;
+    }
+
+    const loadData = async () => {
+      try {
+        const { data } = await axios.get(
+          `/api/quiz/get-online-history/${resultId}/${roomId}`
+        );
+        if (data.success) {
+          if (data.isPending) {
+            setIsPending(true);
+            setOpponentUser(data.data.opponentUser);
+            const timeTaken = new Date(data.data.time.timeTaken);
+            timeTaken.setSeconds(
+              Number(data.data.time.fullTime) - timeTaken.getSeconds()
+            );
+            setRemainingTime(timeTaken);
+            if (data.data.myData) {
+              setMyData(data.data.myData);
             }
           } else {
-            navigate("/quiz?error=true");
+            setIsPending(false);
+            setOpponentUser(data.data.opponentUser);
+            if (data.data.myHistory) {
+              setMyData(data.data.myHistory);
+            }
+            if (data.data.opponentHistory) {
+              setOpponentData(data.data.opponentHistory);
+            }
           }
-        } catch (error) {
+        } else {
           navigate("/quiz?error=true");
-          console.log(error);
         }
-      };
-      loadData();
-      socketIo.emit("get-online-history", { resultId, roomId });
-      socketIo.on("get-online-history-data", (data) => {
-        if (data) {
-          setIsPending(false);
-          setOpponentData(data);
-        }
-      });
-      socketIo.on("get-online-history-error", (data) => {
-        if (data.error === "payload-error") {
-          console.log("Payload is not correct!");
-          toast.error("Something went wrong please try again later!");
-        }
-        if (data.error === "not-found") {
-          console.log("Something went wrong!");
-          toast.error("Something went wrong please try again later!");
-        }
-      });
-    } catch (error) {
-      console.log(error);
-      navigate("/quiz?error=true");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      } catch (error) {
+        console.error(error);
+        navigate("/quiz?error=true");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+
+    socketIo.emit("get-online-history", { resultId, roomId });
+
+    const handleHistoryData = (data: any) => {
+      if (data) {
+        setIsPending(false);
+        setOpponentData(data);
+      }
+    };
+
+    const handleHistoryError = (data: any) => {
+      if (data.error === "payload-error" || data.error === "not-found") {
+        console.log("Something went wrong!");
+        toast.error("Something went wrong, please try again later!");
+      }
+    };
+
+    socketIo.on("get-online-history-data", handleHistoryData);
+    socketIo.on("get-online-history-error", handleHistoryError);
+
+    return () => {
+      socketIo.off("get-online-history-data", handleHistoryData);
+      socketIo.off("get-online-history-error", handleHistoryError);
+    };
+  }, [resultId, roomId, navigate]);
 
   useEffect(() => {
     if (!myData && !opponentData) return;
@@ -293,6 +297,7 @@ export default function OnlineResult() {
       time.getMinutes()
     ).padStart(2, "0")} : ${String(time.getSeconds()).padStart(2, "0")}`;
   };
+  console.log(remainingTime);
 
   const chartData = [
     { browser: "safari", visitors: percentage, fill: "#7B2CBF" },

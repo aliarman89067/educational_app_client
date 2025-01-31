@@ -64,14 +64,16 @@ export default function QuizRoomOnline() {
   const [isOpponentComplete, setIsOpponentComplete] = useState(false);
   const [opponentCompleteTime, setOpponentCompleteTime] = useState("");
   const { socketIo } = useSocket();
-  const { sessionId } = useSocketStore();
 
   useEffect(() => {
+    let timeoutId: any;
     if (!isLoaded) return;
     if (!roomId || !userId) {
       navigate("/quiz?error=true");
       return;
     }
+
+    // Load data function
     const loadData = async () => {
       try {
         const { data } = await axios.get(
@@ -79,43 +81,49 @@ export default function QuizRoomOnline() {
         );
         if (data.success) {
           setData(data.data);
-          const timeoutId = setTimeout(() => {
-            setIsUserMessage(true);
-          }, 500);
-          const timeoutId2 = setTimeout(() => {
+          setIsUserMessage(true);
+          timeoutId = setTimeout(() => {
             setIsUserMessage(false);
-            clearTimeout(timeoutId);
-            clearTimeout(timeoutId2);
           }, 4000);
         } else {
           navigate("/quiz?error=true");
-          return;
         }
       } catch (error) {
+        console.error("Error fetching data:", error);
         navigate("/quiz?error=true");
-        return;
       } finally {
         setIsLoading(false);
       }
     };
+
+    // Call loadData function
     loadData();
-    socketIo.on("opponent-completed", (data) => {
+
+    const opponentCompleteListener = (data: any) => {
       if (data.isCompleted) {
         setIsOpponentComplete(true);
         const completeTime = new Date(data.time);
         setOpponentCompleteTime(
           `${completeTime.getHours()} : ${completeTime.getMinutes()} : ${completeTime.getSeconds()}`
         );
-        const timeoutId = setTimeout(() => {
+        setTimeout(() => {
           setIsOpponentComplete(false);
         }, 5000);
-        return () => clearTimeout(timeoutId);
       }
-    });
-    socketIo.on("complete-response", (data) => {
+    };
+    const completeResponseListener = (data: any) => {
       navigate(`/result-online/${data._id}/${roomId}`);
-    });
-  }, [roomId, isLoaded]);
+    };
+
+    socketIo.on("opponent-completed", opponentCompleteListener);
+    socketIo.on("complete-response", completeResponseListener);
+
+    return () => {
+      socketIo.off("opponent-completed", opponentCompleteListener);
+      socketIo.off("complete-response", completeResponseListener);
+      clearTimeout(timeoutId);
+    };
+  }, [roomId, userId, isLoaded, navigate]);
 
   const handlePrev = () => {
     if (quizIndex > 0) {
@@ -136,61 +144,81 @@ export default function QuizRoomOnline() {
   };
 
   const handleSubmit = () => {
-    // Time Taken
+    let timeoutId1: any;
+    try {
+      // Time Taken Calculation
+      let completeTime: number;
 
-    let completeTime: number;
+      if (data?.onlineRoomData.seconds === "no-limit") {
+        const now = new Date();
+        now.setHours(time.hours, time.minutes, time.seconds, 0);
+        completeTime = now.getTime();
+      } else {
+        const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
 
-    if (data?.onlineRoomData.seconds === "no-limit") {
-      const now = new Date();
-      now.setHours(time.hours, time.minutes, time.seconds, 0);
-      completeTime = now.getTime();
-    } else {
-      const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
+        const future = new Date(
+          time.hours * 60 * 60 * 1000 +
+            time.minutes * 60 * 1000 +
+            time.seconds * 1000
+        );
 
-      const future = new Date(
-        time.hours * 60 * 60 * 1000 +
-          time.minutes * 60 * 1000 +
-          time.seconds * 1000
-      );
+        const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+        const diffInSeconds = diffInMilliseconds / 1000;
 
-      const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+        const hours = Math.floor(diffInSeconds / 3600);
+        const minutes = Math.floor((diffInSeconds % 3600) / 60);
+        const seconds = Math.floor(diffInSeconds % 60);
 
-      const diffInSeconds = diffInMilliseconds / 1000;
-      const hours = Math.floor(diffInSeconds / 3600);
-      const minutes = Math.floor((diffInSeconds % 3600) / 60);
-      const seconds = Math.floor(diffInSeconds % 60);
-
-      const mainDiff = new Date();
-      mainDiff.setHours(hours, minutes, seconds, 0);
-      completeTime = mainDiff.getTime();
-    }
-
-    const mcqs = data?.onlineRoomData?.quizes.map((item) => item._id);
-    const sortedQuizId = selectedOptionIds?.map((item) => ({
-      _id: item.option.mcqId,
-      isCorrect: item.option.isCorrect,
-      selected: item.option._id,
-    }));
-    socketIo.emit("online-submit", {
-      roomId,
-      userId,
-      selectedStates: sortedQuizId,
-      mcqs,
-      completeTime,
-    });
-    socketIo.on("submit-error", (data) => {
-      if (data.error === "payload-not-correct") {
-        console.log("Payload is not error for submittion");
-        toast.error("Something went wrong!");
+        const mainDiff = new Date();
+        mainDiff.setHours(hours, minutes, seconds, 0);
+        completeTime = mainDiff.getTime();
       }
-    });
+
+      // Get MCQ IDs and Sorted Quiz Options
+      const mcqs = data?.onlineRoomData?.quizes.map((item) => item._id);
+      const sortedQuizId = selectedOptionIds?.map((item) => ({
+        _id: item.option.mcqId,
+        isCorrect: item.option.isCorrect,
+        selected: item.option._id,
+      }));
+
+      // Emit submission data to the server
+      socketIo.emit("online-submit", {
+        roomId,
+        userId,
+        selectedStates: sortedQuizId,
+        mcqs,
+        completeTime,
+      });
+
+      // Handle submit error using socket listener with cleanup
+      const handleSubmitError = (data: any) => {
+        if (data.error === "payload-not-correct") {
+          console.log("Payload is not correct for submission");
+          toast.error("Something went wrong!");
+        }
+      };
+
+      // Register socket event listeners
+
+      socketIo.on("submit-error", handleSubmitError);
+
+      // Cleanup socket listener after it triggers
+      const cleanupSocketListener = () => {
+        socketIo.off("submit-error", handleSubmitError);
+        clearTimeout(timeoutId1);
+      };
+      setTimeout(cleanupSocketListener, 5000);
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
+      toast.error("An unexpected error occurred.");
+    }
   };
   useEffect(() => {
     if (isTimeOut) {
       handleSubmit();
     }
   }, [isTimeOut]);
-  console.log(isTimeOut);
 
   return (
     <>
