@@ -5,7 +5,6 @@ import QuizOnlineData from "@/components/quizComponents/QuizOnlineData";
 import { Progress } from "@/components/ui/progress";
 import images from "@/constants/images";
 import { useSocket } from "@/context/SocketContext";
-import { useSocketStore } from "@/context/zustandStore";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
@@ -59,7 +58,7 @@ export default function QuizRoomOnline() {
         _id: string;
         option: { _id: string; isCorrect: boolean; mcqId: string };
       }[]
-  >(null);
+  >([]);
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [isOpponentComplete, setIsOpponentComplete] = useState(false);
   const [opponentCompleteTime, setOpponentCompleteTime] = useState("");
@@ -86,11 +85,20 @@ export default function QuizRoomOnline() {
             setIsUserMessage(false);
           }, 4000);
         } else {
-          navigate("/quiz?error=true");
+          // Handles all errors by their type
+          if (data.error === "room-expired") {
+            navigate("/quiz?error=true&type=expired");
+          }
+          if (data.error === "server-error") {
+            navigate("/quiz?error=true&type=server-error");
+          }
+          if (data.error === "opponent-left") {
+            navigate("/quiz?error=true&type=opponent-left");
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-        navigate("/quiz?error=true");
+        navigate("/quiz?error=true&type=server-error");
       } finally {
         setIsLoading(false);
       }
