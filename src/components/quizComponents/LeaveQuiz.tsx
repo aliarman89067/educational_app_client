@@ -15,10 +15,12 @@ import { useNavigate } from "react-router-dom";
 
 interface Props {
   roomId: string | undefined;
+  userId?: string | null;
   type: "solo" | "online";
+  submit?: () => void;
 }
 
-export default function LeaveQuiz({ roomId, type }: Props) {
+export default function LeaveQuiz({ roomId, type, userId, submit }: Props) {
   const navigate = useNavigate();
   const handleLeave = async () => {
     if (!roomId) return;
@@ -26,7 +28,10 @@ export default function LeaveQuiz({ roomId, type }: Props) {
       if (type === "solo") {
         await axios.put("/api/quiz/leave-solo-room", { roomId });
       } else if (type === "online") {
-        await axios.put("/api/quiz/leave-online-room", { roomId });
+        if (userId && submit) {
+          await axios.put("/api/quiz/leave-online-room", { roomId, userId });
+          submit();
+        }
       }
       navigate("/quiz", { replace: true });
     } catch (error) {

@@ -2,9 +2,11 @@ import BackPressedLeave from "@/components/quizComponents/BackPressedLeave";
 import LeaveQuiz from "@/components/quizComponents/LeaveQuiz";
 import NormalTimer from "@/components/quizComponents/NormalTimer";
 import QuizOnlineData from "@/components/quizComponents/QuizOnlineData";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import images from "@/constants/images";
 import { useSocket } from "@/context/SocketContext";
+import { useSocketStore } from "@/context/zustandStore";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
@@ -47,6 +49,7 @@ export default function QuizRoomOnline() {
     };
   }>(null);
   const { roomId } = useParams();
+  const { sessionId } = useSocketStore();
   const navigate = useNavigate();
   const { userId, isLoaded } = useAuth();
   const [quizIndex, setQuizIndex] = useState(0);
@@ -62,6 +65,8 @@ export default function QuizRoomOnline() {
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [isOpponentComplete, setIsOpponentComplete] = useState(false);
   const [opponentCompleteTime, setOpponentCompleteTime] = useState("");
+  const [isOpponentResign, setIsOpponentResign] = useState(false);
+  const [remainingTime, setRemainingTime] = useState("");
   const { socketIo } = useSocket();
 
   useEffect(() => {
@@ -76,9 +81,10 @@ export default function QuizRoomOnline() {
     const loadData = async () => {
       try {
         const { data } = await axios.get(
-          `/api/quiz/get-online-room/${roomId}/${userId}`
+          `/api/quiz/get-online-room/${roomId}/${userId}/${sessionId}`
         );
         if (data.success) {
+          setRemainingTime(data.data.remainingTime);
           setData(data.data);
           setIsUserMessage(true);
           timeoutId = setTimeout(() => {
@@ -87,18 +93,19 @@ export default function QuizRoomOnline() {
         } else {
           // Handles all errors by their type
           if (data.error === "room-expired") {
-            navigate("/quiz?error=true&type=expired");
+            navigate("/");
           }
           if (data.error === "server-error") {
-            navigate("/quiz?error=true&type=server-error");
+            navigate("/");
           }
           if (data.error === "opponent-left") {
-            navigate("/quiz?error=true&type=opponent-left");
+            // TODO: make it fully functional
+            navigate("/");
           }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-        navigate("/quiz?error=true&type=server-error");
+        navigate("/");
       } finally {
         setIsLoading(false);
       }
@@ -123,15 +130,109 @@ export default function QuizRoomOnline() {
       navigate(`/result-online/${data._id}/${roomId}`);
     };
 
+    const completeResignListener = (data: any) => {
+      console.log("Its running very before");
+      navigate(`/result-online/${data._id}/${roomId}`);
+    };
+
     socketIo.on("opponent-completed", opponentCompleteListener);
     socketIo.on("complete-response", completeResponseListener);
+    socketIo.on("opponent-resign", resignResponseListener);
+    socketIo.on("complete-resign-response", completeResignListener);
 
     return () => {
       socketIo.off("opponent-completed", opponentCompleteListener);
       socketIo.off("complete-response", completeResponseListener);
+      socketIo.off("opponent-resign", resignResponseListener);
+      socketIo.off("complete-resign-response", completeResignListener);
       clearTimeout(timeoutId);
     };
-  }, [roomId, userId, isLoaded, navigate]);
+  }, [roomId, userId, isLoaded, navigate, data]);
+
+  const resignResponseListener = (responseData: any) => {
+    if (responseData.isCompleted) {
+      setIsOpponentResign(true);
+      const quizCompleteTime = new Date(responseData.time);
+      setOpponentCompleteTime(
+        `${quizCompleteTime.getHours()} : ${quizCompleteTime.getMinutes()} : ${quizCompleteTime.getSeconds()}`
+      );
+      // Socket Logic
+      // Time Taken Calculation
+      let completeTime: number;
+
+      if (data?.onlineRoomData.seconds === "no-limit") {
+        const now = new Date();
+        now.setHours(time.hours, time.minutes, time.seconds, 0);
+        completeTime = now.getTime();
+      } else {
+        const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
+
+        const future = new Date(
+          time.hours * 60 * 60 * 1000 +
+            time.minutes * 60 * 1000 +
+            time.seconds * 1000
+        );
+
+        const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+        const diffInSeconds = diffInMilliseconds / 1000;
+
+        const hours = Math.floor(diffInSeconds / 3600);
+        const minutes = Math.floor((diffInSeconds % 3600) / 60);
+        const seconds = Math.floor(diffInSeconds % 60);
+
+        const mainDiff = new Date();
+        mainDiff.setHours(hours, minutes, seconds, 0);
+        completeTime = mainDiff.getTime();
+      }
+
+      // Get MCQ IDs and Sorted Quiz Options
+      const mcqs = data?.onlineRoomData?.quizes.map((item) => item._id);
+      const sortedQuizId = selectedOptionIds?.map((item) => ({
+        _id: item.option.mcqId,
+        isCorrect: item.option.isCorrect,
+        selected: item.option._id,
+      }));
+      // Emit submission data to the server
+      socketIo.emit("online-resign-submit", {
+        roomId,
+        userId,
+        selectedStates: sortedQuizId,
+        mcqs,
+        completeTime,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleUnmount = async () => {
+      const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
+
+      const future = new Date(
+        time.hours * 60 * 60 * 1000 +
+          time.minutes * 60 * 1000 +
+          time.seconds * 1000
+      );
+
+      const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+      const seconds = diffInMilliseconds / 1000;
+      const remainingSeconds = new Date(
+        Number(data?.onlineRoomData.seconds) * 1000
+      );
+      remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
+
+      await axios.put("/api/quiz/update-onlineroom-values", {
+        userId,
+        remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
+        roomId,
+      });
+    };
+
+    window.addEventListener("beforeunload", handleUnmount);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleUnmount);
+    };
+  }, [time]);
 
   const handlePrev = () => {
     if (quizIndex > 0) {
@@ -252,6 +353,7 @@ export default function QuizRoomOnline() {
             alt="Quiz Bg"
             className="w-full h-full absolute top-0 left-0 object-cover opacity-20"
           />
+          {/* Starting Toast */}
           <div
             className={cn(
               "absolute left-2 bottom-2 bg-white rounded-md px-4 py-2 flex flex-col gap-2 items-center z-10 max-w-[200px] shadow-2xl shadow-black/60 border border-gray-200 select-none transition-all duration-500 ease-in-out",
@@ -274,6 +376,7 @@ export default function QuizRoomOnline() {
               <span className="font-bold">{data?.opponent?.fullName}</span>
             </h1>
           </div>
+          {/* Opponent Complete Toast */}
           <div
             className={cn(
               "absolute left-2 bottom-2 bg-white rounded-md px-4 py-2 flex flex-col gap-2 items-center z-10 max-w-[200px] shadow-2xl shadow-black/60 border border-gray-200 select-none transition-all duration-500 ease-in-out",
@@ -301,12 +404,35 @@ export default function QuizRoomOnline() {
               </span>
             </div>
           </div>
+          {/* Opponent Resign Toast */}
+          <Dialog open={isOpponentResign} onOpenChange={setIsOpponentResign}>
+            <DialogContent className="flex flex-col items-center gap-2 bg-white text-center">
+              <h1 className="font-blackHans text-primaryPurple font-bold text-3xl mb-2">
+                You Win By Resignation
+              </h1>
+              <img
+                src={data?.opponent.imageUrl}
+                alt={data?.opponent.fullName}
+                className="w-20 h-20 rounded-full object-cover mb-4"
+              />
+              <p className="font-openSans text-lightGray font-semibold text-xl text-center">
+                <span className="font-bold">{data?.opponent.fullName}</span>{" "}
+                Resign the quiz in <br />{" "}
+                <span className="font-bold">{opponentCompleteTime}</span>
+              </p>
+            </DialogContent>
+          </Dialog>
           <div className="container bg-gray-200 rounded-xl w-full p-5 relative overflow-hidden">
             <div className="w-[400px] h-[400px] rounded-full absolute -top-[150px] -left-[150px] quizCircleGradient opacity-50" />
             <div className="bg-white w-full min-h-[85vh] rounded-xl px-4 py-6 relative">
               <div className="flex items-start justify-between gap-10 shrink-0">
                 <div className="w-[130px]">
-                  <LeaveQuiz roomId={data?.onlineRoomData?._id} type="online" />
+                  <LeaveQuiz
+                    userId={userId}
+                    roomId={data?.onlineRoomData?._id}
+                    type="online"
+                    submit={handleSubmit}
+                  />
                 </div>
                 {/* Quiz */}
                 <div className="w-full">
@@ -344,6 +470,7 @@ export default function QuizRoomOnline() {
                   setTime={setTime}
                   seconds={data?.onlineRoomData.seconds}
                   setIsTimeOut={setIsTimeOut}
+                  remainingTime={remainingTime}
                 />
               </div>
               <div className="flex md:hidden">

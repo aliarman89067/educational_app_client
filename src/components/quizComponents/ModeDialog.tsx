@@ -17,7 +17,7 @@ import images from "@/constants/images";
 import axios from "axios";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { useSocketStore } from "@/context/zustandStore";
 import { useSocket } from "@/context/SocketContext";
 import searchingAnimation from "@/assets/animations/searching.json";
@@ -70,6 +70,8 @@ export default function YearModeDialog({
 
   const { user } = useUser();
 
+  const { openSignIn } = useClerk();
+
   const { sessionId } = useSocketStore();
   const { socketIo } = useSocket();
 
@@ -119,6 +121,11 @@ export default function YearModeDialog({
   }, [isOpponentFinded, onlineRoomId, navigate]);
 
   const handleOnlinePlay = async () => {
+    if (!user || !user.id) {
+      openSignIn();
+      setIsOpen(false);
+      return;
+    }
     try {
       if (
         !data ||
@@ -163,7 +170,7 @@ export default function YearModeDialog({
         }
       };
       const noStudentFound = (data: any) => {
-        if (data.error === "failed-to-find-student") {
+        if (data.error === "Failed to find student") {
           setIsOpponentFinding(false);
           setErrorFinding(true);
         }

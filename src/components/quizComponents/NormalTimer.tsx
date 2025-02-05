@@ -23,6 +23,7 @@ interface Props {
   >;
   seconds: string | undefined;
   setIsTimeOut: Dispatch<SetStateAction<boolean>>;
+  remainingTime?: string;
 }
 
 export default function NormalTimer({
@@ -35,6 +36,7 @@ export default function NormalTimer({
   setTime,
   seconds,
   setIsTimeOut,
+  remainingTime,
 }: Props) {
   const [isHide, setIsHide] = useState(true);
   const [whiteBoardStrokes, setWhiteBoardStrokes] = useState<
@@ -52,14 +54,19 @@ export default function NormalTimer({
         handleNormalTimer();
       }, 1000);
     } else {
-      let totalSeconds = Number(seconds);
+      let totalSeconds: number;
+      if (remainingTime) {
+        totalSeconds = Number(remainingTime);
+      } else {
+        totalSeconds = Number(seconds);
+      }
       id = setInterval(() => {
         totalSeconds--;
         handleLimitTimer(totalSeconds);
       }, 1000);
     }
     return () => clearInterval(id);
-  }, [seconds]);
+  }, [seconds, remainingTime]);
 
   const handleLimitTimer = (seconds: number) => {
     if (seconds >= 0) {
