@@ -32,7 +32,6 @@ interface Props {
   handlePrev: () => void;
   handleNext: () => void;
   quizIndex: number;
-  time: { hours: number; minutes: number; seconds: number };
   handleSubmit: () => void;
   selectedOptionIds:
     | null
@@ -49,6 +48,7 @@ interface Props {
         }[]
     >
   >;
+  isOpponentResign?: boolean;
 }
 
 export default function QuizOnlineData({
@@ -59,7 +59,7 @@ export default function QuizOnlineData({
   quizIndex,
   selectedOptionIds,
   setSelectedOptionIds,
-  time,
+  isOpponentResign,
 }: Props) {
   const [currentQuiz, setCurrentQuiz] = useState(data?.quizes[quizIndex]);
   if (
@@ -196,17 +196,21 @@ export default function QuizOnlineData({
             title="Prev"
             Icon={ChevronLeft}
             iconFirst
-            disabled={quizIndex === 0}
+            disabled={quizIndex === 0 || isOpponentResign}
           />
           <CustomRoundButton
             handleClick={handleNext}
             title="Next"
             Icon={ChevronRight}
-            disabled={isLastQuiz}
+            disabled={isLastQuiz || isOpponentResign}
           />
         </div>
         {isLastQuiz && (
-          <CustomRoundButton title="Submit" handleClick={handleSubmit} />
+          <CustomRoundButton
+            title="Submit"
+            handleClick={handleSubmit}
+            disabled={isOpponentResign}
+          />
         )}
       </div>
     </div>

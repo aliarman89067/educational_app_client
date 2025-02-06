@@ -15,20 +15,32 @@ import { useNavigate } from "react-router-dom";
 interface Props {
   isBackPressed: boolean;
   setIsBackPressed: Dispatch<SetStateAction<boolean>>;
-  soloRoomId: string | undefined;
+  roomId: string | undefined;
+  roomType: "solo-room" | "online-room";
+  userId?: string | undefined | null;
+  submit?: () => void;
 }
 
 export default function BackPressedLeave({
   isBackPressed,
   setIsBackPressed,
-  soloRoomId,
+  roomId,
+  roomType,
+  userId,
+  submit,
 }: Props) {
   const navigate = useNavigate();
 
   const handleLeave = async () => {
-    if (!soloRoomId) return;
+    if (!roomId) return;
     try {
-      await axios.put("/api/quiz/leave-solo-room", { soloRoomId });
+      if (roomType === "solo-room") {
+        await axios.put("/api/quiz/leave-solo-room", { roomId });
+      } else if (roomType === "online-room" && userId && submit) {
+        await axios.put("/api/quiz/leave-online-room", { roomId, userId });
+        submit();
+      }
+
       window.history.pushState(null, "", "/quiz");
       navigate("/quiz", { replace: true });
     } catch (error) {

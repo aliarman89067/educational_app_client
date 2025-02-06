@@ -199,7 +199,8 @@ export default function QuizRoomSolo() {
           <BackPressedLeave
             isBackPressed={isBackPressed}
             setIsBackPressed={setIsBackPressed}
-            soloRoomId={quizData?._id}
+            roomId={quizData?._id}
+            roomType="solo-room"
           />
           <img
             src={images.quizBg}

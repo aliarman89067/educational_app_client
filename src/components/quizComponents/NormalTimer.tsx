@@ -24,6 +24,7 @@ interface Props {
   seconds: string | undefined;
   setIsTimeOut: Dispatch<SetStateAction<boolean>>;
   remainingTime?: string;
+  isOpponentResign?: boolean;
 }
 
 export default function NormalTimer({
@@ -37,6 +38,7 @@ export default function NormalTimer({
   seconds,
   setIsTimeOut,
   remainingTime,
+  isOpponentResign,
 }: Props) {
   const [isHide, setIsHide] = useState(true);
   const [whiteBoardStrokes, setWhiteBoardStrokes] = useState<
@@ -49,6 +51,7 @@ export default function NormalTimer({
   let id: any;
 
   useEffect(() => {
+    if (isOpponentResign) return;
     if (seconds === "no-limit") {
       id = setInterval(() => {
         handleNormalTimer();
@@ -66,7 +69,7 @@ export default function NormalTimer({
       }, 1000);
     }
     return () => clearInterval(id);
-  }, [seconds, remainingTime]);
+  }, [seconds, remainingTime, isOpponentResign]);
 
   const handleLimitTimer = (seconds: number) => {
     if (seconds >= 0) {
