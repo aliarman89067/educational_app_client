@@ -21,6 +21,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@clerk/clerk-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import loadingAnimation from "@/assets/animations/loading.json";
+import LottieReact from "lottie-react";
 
 type DataTypes = {
   _id: string;
@@ -117,6 +120,11 @@ export default function OnlineResult() {
     "correct" | "wrong-incomplete"
   >("correct");
   const [resignation, setResignation] = useState("");
+  const [rematchLoading, setRematchLoading] = useState(false);
+  const [isRematchFound, setIsRematchFound] = useState<
+    "loading" | "finded" | "cancelled"
+  >("loading");
+  const [isGetRematchRequest, setIsGetRematchRequest] = useState(false);
 
   const navigate = useNavigate();
   const { socketIo } = useSocket();
@@ -305,7 +313,6 @@ export default function OnlineResult() {
       time.getMinutes()
     ).padStart(2, "0")} : ${String(time.getSeconds()).padStart(2, "0")}`;
   };
-  console.log(remainingTime);
 
   const chartData = [
     { browser: "safari", visitors: percentage, fill: "#7B2CBF" },
@@ -319,39 +326,6 @@ export default function OnlineResult() {
       color: "#7B2CBF",
     },
   } satisfies ChartConfig;
-
-  const handleMessage = () => {
-    if (percentage <= 10) {
-      return "No problem! Keep practicing, you’ll get there!";
-    }
-    if (percentage <= 20) {
-      return "Great effort, but there's room for improvement. Try again!";
-    }
-    if (percentage <= 30) {
-      return "You're doing well, but a little more practice will make all the difference!";
-    }
-    if (percentage <= 40) {
-      return "Almost there! Keep going, you can do it!";
-    }
-    if (percentage <= 50) {
-      return "Great job! You're on the right track!";
-    }
-    if (percentage <= 60) {
-      return "Marvellous! Keep up the good work!";
-    }
-    if (percentage <= 70) {
-      return "Excellent! You’re getting stronger with every try!";
-    }
-    if (percentage <= 80) {
-      return "Fantastic! Your hard work is really paying off!";
-    }
-    if (percentage <= 90) {
-      return "Incredible! You're on fire!";
-    }
-    if (percentage > 90) {
-      return "Awesome! You're becoming a pro at this!";
-    }
-  };
 
   const getCompleteTime = () => {
     if (!myData?.time && !opponentData?.time) return;
@@ -376,9 +350,116 @@ export default function OnlineResult() {
       return "no-resign";
     }
   };
+  useEffect(() => {
+    const handleFoundRematch = () => {
+      setIsRematchFound("finded");
+    };
+    const getRematchRequest = () => {
+      setIsGetRematchRequest(true);
+    };
+    const getCancelRematch = () => {
+      setIsGetRematchRequest(false);
+      setIsRematchFound("cancelled");
+    };
+
+    socketIo.on("rematch-found", handleFoundRematch);
+    socketIo.on("get-rematch-request", getRematchRequest);
+    socketIo.on("get-cancel-rematch", getCancelRematch);
+    return () => {
+      socketIo.off("rematch-found", handleFoundRematch);
+      socketIo.off("get-rematch-request", getRematchRequest);
+      socketIo.on("get-cancel-rematch", getCancelRematch);
+    };
+  }, []);
+  const handleRematch = () => {
+    if (!roomId || !userId) return;
+    socketIo.emit("request-rematch", { roomId, userId });
+    setRematchLoading(true);
+  };
+  const handleCancelRematchRequest = () => {
+    if (!roomId || !userId) return;
+    socketIo.emit("cancel-rematch-request", { roomId, userId });
+  };
 
   return (
     <>
+      {/* Rematch Dialog */}
+      <Dialog open={rematchLoading} onOpenChange={setRematchLoading}>
+        <DialogContent className="bg-white flex items-center justify-center flex-col">
+          {isRematchFound === "finded" && (
+            <div className="relative flex items-center justify-center w-full">
+              <div className="absolute top-0 left-0 w-8 h-8 rounded-full border border-lightGray flex items-center justify-center">
+                <span className="font-openSans font-semibold text-lightGray">
+                  1
+                </span>
+              </div>
+              <div className="flex flex-col gap-3 items-center justify-center">
+                <h3 className="font-openSans text-xl font-semibold text-darkGray text-center">
+                  Waiting For Response
+                </h3>
+                <div className="w-[300px] h-[190px] relative flex items-center justify-center">
+                  <LottieReact
+                    animationData={loadingAnimation}
+                    loop
+                    autoPlay
+                    className="w-[300px] -mt-6"
+                  />
+                  <img
+                    src={opponentUser?.imageUrl}
+                    alt={opponentUser?.fullName}
+                    className="w-20 h-20 rounded-full object-cover text-center absolute top-1/2 left-1/2 -translate-y-[52px] -translate-x-1/2"
+                  />
+                </div>
+                <div className="flex flex-col items-center gap-1 -mt-4">
+                  <h3 className="font-openSans text-sm font-medium text-lightGray">
+                    Opponent Name
+                  </h3>
+                  <span className="font-openSans font-medium text-lightGray">
+                    {opponentUser?.fullName}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          {isRematchFound === "loading" && (
+            <div className="flex w-full h-full items-center justify-center py-10">
+              <div className="flex flex-col items-center gap-2">
+                <h1 className="font-blackHans text-primaryPurple text-xl">
+                  Loading...
+                </h1>
+                <p>Setting things up. It won&rsquo;t take long!</p>
+                <Loader2 className="size-5 text-primaryPurple animate-spin" />
+              </div>
+            </div>
+          )}
+          {isRematchFound === "cancelled" && <>Cancelled</>}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isGetRematchRequest} onOpenChange={setIsGetRematchRequest}>
+        <DialogContent className="flex flex-col items-center justify-center gap-2 bg-white">
+          <img
+            src={opponentUser?.imageUrl}
+            alt={opponentUser?.fullName}
+            className="w-12 h-12 rounded-full text-center object-cover"
+          />
+          <div className="flex items-center flex-col mt-2">
+            <h3 className="font-openSans text-xl text-darkGray font-bold text-center">
+              {opponentUser?.fullName}
+            </h3>
+            <span>Want&apos;s to play again</span>
+          </div>
+          <div className="flex items-center gap-3 mt-2">
+            <Button size="lg">Let&apos;s Play</Button>
+            <Button
+              onClick={handleCancelRematchRequest}
+              size="lg"
+              variant="destructive"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {isLoading ? (
         <div className="flex w-full min-h-[88vh] items-center justify-center">
           <div className="flex flex-col items-center gap-2">
@@ -941,6 +1022,7 @@ export default function OnlineResult() {
                         <CustomSquareButton
                           title="Rematch request"
                           Icon={RedoIcon}
+                          handleClick={handleRematch}
                           fill
                           iconHeight={20}
                           iconWidth={20}

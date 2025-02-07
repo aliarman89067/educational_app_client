@@ -11,7 +11,7 @@ import { useSocketStore } from "@/context/zustandStore";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
-import { Loader2, X } from "lucide-react";
+import { ArrowRightIcon, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -219,33 +219,7 @@ export default function QuizRoomOnline() {
     };
     window.history.pushState(null, "", location.href);
     window.addEventListener("popstate", handlePopState);
-    // const handleBeforeUnload = async () => {
-    //   const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
-
-    //   const future = new Date(
-    //     time.hours * 60 * 60 * 1000 +
-    //       time.minutes * 60 * 1000 +
-    //       time.seconds * 1000
-    //   );
-
-    //   const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
-    //   const seconds = diffInMilliseconds / 1000;
-    //   const remainingSeconds = new Date(
-    //     Number(data?.onlineRoomData.seconds) * 1000
-    //   );
-    //   remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
-
-    //   await axios.put("/api/quiz/update-onlineroom-values", {
-    //     userId,
-    //     remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
-    //     roomId,
-    //   });
-    // };
-
-    // window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
-      // window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("popstate", handlePopState);
     };
   }, [time]);
@@ -508,28 +482,39 @@ export default function QuizRoomOnline() {
           </div>
           {/* Opponent Resign Toast */}
           <Dialog open={isOpponentResign}>
-            <DialogContent className="flex flex-col items-center gap-2 bg-white text-center [&>button:last-child]:hidden">
-              <h1 className="font-openSans text-primaryPurple font-bold text-3xl mb-2">
-                You Win By Resignation
-              </h1>
-              <img
-                src={data?.opponent.imageUrl}
-                alt={data?.opponent.fullName}
-                className="w-20 h-20 rounded-full object-cover mb-4"
-              />
-              <p className="font-openSans text-lg font-bold text-darkGray text-center">
-                {data?.opponent.fullName}
-              </p>
-              <p className="font-openSans text-base font-semibold text-lightGray text-center">
-                Resign the quiz
-              </p>
-              <Button
-                size="lg"
-                className="text-center mt-5"
-                onClick={handleResignResults}
-              >
-                Check Results
-              </Button>
+            <DialogContent className="bg-white [&>button:last-child]:hidden p-0 overflow-hidden">
+              <div className="relative w-full h-full flex flex-col items-center gap-2 text-center overflow-hidden py-6 px-4">
+                <div className="absolute w-10 h-[160%] left-1/2 -translate-x-1/2 -top-24 bg-primaryPurple/60 rotate-45 blur-2xl" />
+                <h1 className="font-openSans text-darkGray font-bold text-3xl mb-2">
+                  You Win By <br />{" "}
+                  <span className="font-blackHans text-primaryPurple font-normal">
+                    Resignation
+                  </span>
+                </h1>
+                <img
+                  src={data?.opponent.imageUrl}
+                  alt={data?.opponent.fullName}
+                  className="w-20 h-20 rounded-xl object-cover"
+                />
+                <p className="font-openSans text-xl font-extrabold text-darkGray text-center">
+                  {data?.opponent.fullName}
+                </p>
+                <div className="flex items-center gap-1">
+                  <div className="w-[30px] h-[2px] rounded-full bg-lightGray/50" />
+                  <p className="font-openSans text-base font-semibold text-lightGray text-center">
+                    Resign the quiz
+                  </p>
+                  <div className="w-[30px] h-[2px] rounded-full bg-lightGray/50" />
+                </div>
+                <Button
+                  onClick={handleResignResults}
+                  size="lg"
+                  className="text-center mt-5"
+                >
+                  Check Results
+                  <ArrowRightIcon />
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
           <div className="container bg-gray-200 rounded-xl w-full p-5 relative overflow-hidden">
