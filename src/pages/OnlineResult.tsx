@@ -118,6 +118,7 @@ export default function OnlineResult() {
 
   const navigate = useNavigate();
   const { socketIo } = useSocket();
+
   useEffect(() => {
     if (!resultId) {
       navigate("/quiz?error=true");

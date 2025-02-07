@@ -69,6 +69,8 @@ export default function QuizRoomOnline() {
   const [isOpponentResign, setIsOpponentResign] = useState(false);
   const [remainingTime, setRemainingTime] = useState("");
   const [newOnlineResultId, setNewOnlineResultId] = useState("");
+  const [isLeaving, setIsLeaving] = useState(false);
+
   const { socketIo } = useSocket();
 
   useEffect(() => {
@@ -210,43 +212,43 @@ export default function QuizRoomOnline() {
     navigate(`/result-online/${newOnlineResultId}/${roomId}`);
   };
 
-  // useEffect(() => {
-  //   const handlePopState = () => {
-  //     window.history.pushState(null, "", location.href);
-  //     setIsBackPressed(true);
-  //   };
-  //   const handleBeforeUnload = async () => {
-  //     const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
+  useEffect(() => {
+    const handlePopState = () => {
+      window.history.pushState(null, "", location.href);
+      setIsBackPressed(true);
+    };
+    window.history.pushState(null, "", location.href);
+    window.addEventListener("popstate", handlePopState);
+    // const handleBeforeUnload = async () => {
+    //   const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
 
-  //     const future = new Date(
-  //       time.hours * 60 * 60 * 1000 +
-  //         time.minutes * 60 * 1000 +
-  //         time.seconds * 1000
-  //     );
+    //   const future = new Date(
+    //     time.hours * 60 * 60 * 1000 +
+    //       time.minutes * 60 * 1000 +
+    //       time.seconds * 1000
+    //   );
 
-  //     const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
-  //     const seconds = diffInMilliseconds / 1000;
-  //     const remainingSeconds = new Date(
-  //       Number(data?.onlineRoomData.seconds) * 1000
-  //     );
-  //     remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
+    //   const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+    //   const seconds = diffInMilliseconds / 1000;
+    //   const remainingSeconds = new Date(
+    //     Number(data?.onlineRoomData.seconds) * 1000
+    //   );
+    //   remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
 
-  //     await axios.put("/api/quiz/update-onlineroom-values", {
-  //       userId,
-  //       remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
-  //       roomId,
-  //     });
-  //   };
-  //   window.history.pushState(null, "", location.href);
+    //   await axios.put("/api/quiz/update-onlineroom-values", {
+    //     userId,
+    //     remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
+    //     roomId,
+    //   });
+    // };
 
-  //   window.addEventListener("beforeunload", handleBeforeUnload);
-  //   window.addEventListener("popstate", handlePopState);
+    // window.addEventListener("beforeunload", handleBeforeUnload);
 
-  //   return () => {
-  //     window.removeEventListener("beforeunload", handleBeforeUnload);
-  //     window.removeEventListener("popstate", handlePopState);
-  //   };
-  // }, [time]);
+    return () => {
+      // window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [time]);
 
   const handlePrev = () => {
     if (quizIndex > 0) {
@@ -383,9 +385,6 @@ export default function QuizRoomOnline() {
     return { roomId, userId, selectedStates: sortedQuizId, mcqs, completeTime };
   };
 
-  //
-  const [isLeaving, setIsLeaving] = useState(false);
-
   useEffect(() => {
     const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
       if (!isLeaving) {
@@ -394,13 +393,14 @@ export default function QuizRoomOnline() {
       } else {
         const { completeTime, mcqs, roomId, selectedStates, userId } =
           getSubmitData();
-        socketIo.emit("testing", {
+        socketIo.emit("online-resign-by-leave", {
           completeTime,
           mcqs,
           roomId,
           selectedStates,
           userId,
         });
+        navigate("/quiz");
       }
     };
 
@@ -408,13 +408,14 @@ export default function QuizRoomOnline() {
       const { completeTime, mcqs, roomId, selectedStates, userId } =
         getSubmitData();
       setIsLeaving(true);
-      socketIo.emit("testing", {
+      socketIo.emit("online-resign-by-leave", {
         completeTime,
         mcqs,
         roomId,
         selectedStates,
         userId,
       });
+      navigate("/quiz");
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -426,7 +427,6 @@ export default function QuizRoomOnline() {
       window.removeEventListener("unload", handleBeforeUnloadConfirm);
     };
   }, [isLeaving, time]);
-  //
 
   return (
     <>
