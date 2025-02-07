@@ -209,54 +209,44 @@ export default function QuizRoomOnline() {
     setIsOpponentResign(false);
     navigate(`/result-online/${newOnlineResultId}/${roomId}`);
   };
-  useEffect(() => {
-    const handlePopState = () => {
-      window.history.pushState(null, "", location.href);
-      setIsBackPressed(true);
-    };
-    const handleBeforeUnload = async () => {
-      const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
 
-      const future = new Date(
-        time.hours * 60 * 60 * 1000 +
-          time.minutes * 60 * 1000 +
-          time.seconds * 1000
-      );
+  // useEffect(() => {
+  //   const handlePopState = () => {
+  //     window.history.pushState(null, "", location.href);
+  //     setIsBackPressed(true);
+  //   };
+  //   const handleBeforeUnload = async () => {
+  //     const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
 
-      const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
-      const seconds = diffInMilliseconds / 1000;
-      const remainingSeconds = new Date(
-        Number(data?.onlineRoomData.seconds) * 1000
-      );
-      remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
+  //     const future = new Date(
+  //       time.hours * 60 * 60 * 1000 +
+  //         time.minutes * 60 * 1000 +
+  //         time.seconds * 1000
+  //     );
 
-      await axios.put("/api/quiz/update-onlineroom-values", {
-        userId,
-        remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
-        roomId,
-      });
-    };
-    const handleUnload = async () => {
-      if (sessionStorage.getItem("isActive")) {
-        await axios.get("/api/quiz/isActive");
-      } else {
-        await axios.get("/api/quiz/non-Active");
-      }
-    };
-    sessionStorage.setItem("isActive", "true");
-    window.history.pushState(null, "", location.href);
+  //     const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+  //     const seconds = diffInMilliseconds / 1000;
+  //     const remainingSeconds = new Date(
+  //       Number(data?.onlineRoomData.seconds) * 1000
+  //     );
+  //     remainingSeconds.setSeconds(remainingSeconds.getSeconds() - seconds);
 
-    window.addEventListener("beforeunload", handleBeforeUnload, {
-      capture: true,
-    });
-    window.addEventListener("popstate", handlePopState);
-    window.addEventListener("unload", handleUnload);
+  //     await axios.put("/api/quiz/update-onlineroom-values", {
+  //       userId,
+  //       remainingSeconds: JSON.stringify(remainingSeconds.getSeconds()),
+  //       roomId,
+  //     });
+  //   };
+  //   window.history.pushState(null, "", location.href);
 
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [time]);
+  //   window.addEventListener("beforeunload", handleBeforeUnload);
+  //   window.addEventListener("popstate", handlePopState);
+
+  //   return () => {
+  //     window.removeEventListener("beforeunload", handleBeforeUnload);
+  //     window.removeEventListener("popstate", handlePopState);
+  //   };
+  // }, [time]);
 
   const handlePrev = () => {
     if (quizIndex > 0) {
@@ -352,6 +342,91 @@ export default function QuizRoomOnline() {
       handleSubmit();
     }
   }, [isTimeOut]);
+
+  const getSubmitData = () => {
+    // Time Taken Calculation
+    let completeTime: number;
+
+    if (data?.onlineRoomData.seconds === "no-limit") {
+      const now = new Date();
+      now.setHours(time.hours, time.minutes, time.seconds, 0);
+      completeTime = now.getTime();
+    } else {
+      const now = new Date(Number(data?.onlineRoomData.seconds) * 1000);
+
+      const future = new Date(
+        time.hours * 60 * 60 * 1000 +
+          time.minutes * 60 * 1000 +
+          time.seconds * 1000
+      );
+
+      const diffInMilliseconds = Math.abs(future.getTime() - now.getTime());
+      const diffInSeconds = diffInMilliseconds / 1000;
+
+      const hours = Math.floor(diffInSeconds / 3600);
+      const minutes = Math.floor((diffInSeconds % 3600) / 60);
+      const seconds = Math.floor(diffInSeconds % 60);
+
+      const mainDiff = new Date();
+      mainDiff.setHours(hours, minutes, seconds, 0);
+      completeTime = mainDiff.getTime();
+    }
+
+    // Get MCQ IDs and Sorted Quiz Options
+    const mcqs = data?.onlineRoomData?.quizes.map((item) => item._id);
+    const sortedQuizId = selectedOptionIds?.map((item) => ({
+      _id: item.option.mcqId,
+      isCorrect: item.option.isCorrect,
+      selected: item.option._id,
+    }));
+
+    return { roomId, userId, selectedStates: sortedQuizId, mcqs, completeTime };
+  };
+
+  //
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+      if (!isLeaving) {
+        event.preventDefault();
+        event.returnValue = "Are you sure you want to leave?";
+      } else {
+        const { completeTime, mcqs, roomId, selectedStates, userId } =
+          getSubmitData();
+        socketIo.emit("testing", {
+          completeTime,
+          mcqs,
+          roomId,
+          selectedStates,
+          userId,
+        });
+      }
+    };
+
+    const handleBeforeUnloadConfirm = async () => {
+      const { completeTime, mcqs, roomId, selectedStates, userId } =
+        getSubmitData();
+      setIsLeaving(true);
+      socketIo.emit("testing", {
+        completeTime,
+        mcqs,
+        roomId,
+        selectedStates,
+        userId,
+      });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    window.addEventListener("unload", handleBeforeUnloadConfirm);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("unload", handleBeforeUnloadConfirm);
+    };
+  }, [isLeaving, time]);
+  //
 
   return (
     <>
