@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ClockIcon, Loader2, RedoIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import LottiePlayer from "lottie-react";
 import clockAnimation from "@/assets/animations/clock.json";
@@ -20,7 +20,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@clerk/clerk-react";
 
 type DataTypes = {
   _id: string;
@@ -60,6 +60,7 @@ type DataTypes = {
 };
 
 export default function OnlineResult() {
+  const { userId, isLoaded } = useAuth();
   const [isPending, setIsPending] = useState(true);
   const { resultId, roomId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -115,12 +116,17 @@ export default function OnlineResult() {
   const [smallScreenTabs, setSmallScreenTabs] = useState<
     "correct" | "wrong-incomplete"
   >("correct");
+  const [resignation, setResignation] = useState("");
 
   const navigate = useNavigate();
   const { socketIo } = useSocket();
 
   useEffect(() => {
     if (!resultId) {
+      navigate("/quiz?error=true");
+      return;
+    }
+    if (isLoaded && !userId) {
       navigate("/quiz?error=true");
       return;
     }
@@ -143,6 +149,7 @@ export default function OnlineResult() {
               setMyData(data.data.myData);
             }
           } else {
+            setResignation(data.data.resignation);
             setIsPending(false);
             setOpponentUser(data.data.opponentUser);
             if (data.data.myHistory) {
@@ -188,7 +195,7 @@ export default function OnlineResult() {
       socketIo.off("get-online-history-data", handleHistoryData);
       socketIo.off("get-online-history-error", handleHistoryError);
     };
-  }, [resultId, roomId, navigate]);
+  }, [resultId, roomId, navigate, isLoaded]);
 
   useEffect(() => {
     if (!myData && !opponentData) return;
@@ -358,6 +365,18 @@ export default function OnlineResult() {
     return `${completeTime.getHours()} : ${completeTime.getMinutes()} : ${completeTime.getSeconds()}`;
   };
 
+  const checkResign = () => {
+    if (resignation) {
+      if (resignation === userId) {
+        return "true";
+      } else {
+        return "false";
+      }
+    } else {
+      return "no-resign";
+    }
+  };
+
   return (
     <>
       {isLoading ? (
@@ -389,7 +408,18 @@ export default function OnlineResult() {
           {currentTab === "your-result" ? (
             <>
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bottom-0 right-0 w-full h-full pointer-events-none select-none">
-                {isWinner && isWinAnimation && (
+                {checkResign() === "no-resign" &&
+                  isWinner &&
+                  isWinAnimation && (
+                    <LottiePlayer
+                      animationData={successAnimation}
+                      autoPlay
+                      loop={false}
+                      onComplete={() => setIsWinAnimation(false)}
+                      className="-translate-y-32"
+                    />
+                  )}
+                {checkResign() === "false" && isWinAnimation && (
                   <LottiePlayer
                     animationData={successAnimation}
                     autoPlay
@@ -411,17 +441,43 @@ export default function OnlineResult() {
                     Result pending
                   </motion.span>
                 ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                    className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl"
-                  >
-                    {/* {handleMessage()} */}
-                    {isWinner && !isDuo && <>You Win!</>}
-                    {!isWinner && !isDuo && <>You Loose!</>}
-                    {!isWinner && isDuo && <>Its a Duo!</>}
-                  </motion.div>
+                  <>
+                    {checkResign() === "no-resign" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                        className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl"
+                      >
+                        {/* {handleMessage()} */}
+                        {isWinner && !isDuo && <>You Win!</>}
+                        {!isWinner && !isDuo && <>You Loose!</>}
+                        {!isWinner && isDuo && <>Its a Duo!</>}
+                      </motion.div>
+                    )}
+                    {checkResign() === "false" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                        className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl"
+                      >
+                        {/* {handleMessage()} */}
+                        <>You Win By Resignation</>
+                      </motion.div>
+                    )}
+                    {checkResign() === "true" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                        className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl"
+                      >
+                        {/* {handleMessage()} */}
+                        <>You Loose By Resignation</>
+                      </motion.div>
+                    )}
+                  </>
                 )}
                 {/* Chart and Statistics */}
                 <Card className="flex flex-col w-full border-none shadow-none bg-transparent">
@@ -831,17 +887,39 @@ export default function OnlineResult() {
               )}
               {!isPending && opponentData && (
                 <div className="container flex flex-col mt-10 mb-16">
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                    className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl mb-2"
-                  >
-                    {/* {handleMessage()} */}
-                    {isWinner && !isDuo && <>Loose!</>}
-                    {!isWinner && !isDuo && <>Win!</>}
-                    {!isWinner && isDuo && <>Its a Duo!</>}
-                  </motion.div>
+                  {checkResign() === "no-resign" && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, ease: "easeInOut" }}
+                      className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl mb-2"
+                    >
+                      {/* {handleMessage()} */}
+                      {isWinner && !isDuo && <>Loose!</>}
+                      {!isWinner && !isDuo && <>Win!</>}
+                      {!isWinner && isDuo && <>Its a Duo!</>}
+                    </motion.div>
+                  )}
+                  {checkResign() === "false" && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, ease: "easeInOut" }}
+                      className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl mb-2"
+                    >
+                      <>Loose By Resignation</>
+                    </motion.div>
+                  )}
+                  {checkResign() === "true" && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, ease: "easeInOut" }}
+                      className="flex justify-center font-openSans text-primaryPurple font-extrabold text-2xl mb-2"
+                    >
+                      <>Win By Resignation</>
+                    </motion.div>
+                  )}
                   {/* Messages */}
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
